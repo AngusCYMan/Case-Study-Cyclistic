@@ -2,6 +2,9 @@
 
 install.packages(tidyverse)
 library(tidyverse)
+install.packages("lubridate")
+library(lubridate)
+library(scales)
 
 ## Import Cyclistic trip data from Aug2021 to Jul2022
 
@@ -29,49 +32,81 @@ summary(cyclistic_trips)
 ## Clean data
 
 ### Delete outliners and nonsense data
+
 trip1 <- cyclistic_trips %>%
   filter(Duration_in_minutes >= 0.1 & Duration_in_minutes <= 14400)
 
 ### Convert "start_at" from Character format to DateTime format
+
 trip1$started_at <- lubridate::dmy_hm(trip1$started_at)
 trip1$ended_at <- lubridate::dmy_hm(trip1$ended_at)
 
-### Create hour field
+### Create hour column
+
 trip1$start_hour <- lubridate::hour(trip1$started_at)
 
-### Create date field
+### Create date column
+
 trip1$start_date <- as.Date(trip1$started_at)
 
-### Create month field
+### Create month column
+
 trip1$start_month <- strftime(trip1$started_at, "%m")
 
+### Create weekday column
+
+trip1$weekday <- wday(trip1$started_at, week_start=1)
 
 summary(trip1)
 
 
-## Manipulate data
+## Analyze data
+
+### Rides per hour
 
 data <- trip1 %>%
-  group_by(member_casual) %>%
+  group_by(member_casual, start_hour) %>%
   count(start_hour) %>%
   print(n=48)
 
-trip1 %>%
-  group_by(member_casual, start_month) %>%
-  summarise(mean(Duration_in_minutes)) %>%
-  print(n = 48)
-
+### Rides and average ride time per month
 trip1 %>%
   group_by(member_casual) %>%
   count(start_month) %>%
   print(n=24)
 
 trip1 %>%
+  group_by(member_casual, start_month) %>%
+  summarise(mean(Duration_in_minutes)) %>%
+  print(n = 48)
+
+### Rides and ride time over day of week
+
+trip1 %>%
+  group_by(member_casual, weekday) %>%
+  count()
+
+trip1 %>%
+  group_by(member_casual, weekday) %>%
+  summarise(mean(Duration_in_minutes))
+
+### Ride type
+
+trip1 %>%
   group_by(member_casual) %>%
   count(rideable_type)
+
+## Visualization
+
+trip1 %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = rideable_type, fill = member_casual)) +
+  labs(title = "Rideable Type", x = "", legend = "") +
+  scale_y_continuous(labels = comma)
 
 trip1 %>%
   count(start_hour) %>%
   ggplot() + 
   geom_line(mapping = aes(x = start_hour, y = n)) +
-  labs(title = "Rides over hours") 
+  labs(title = "Rides over hours", x = "Start hour", y = "Number of rides") +
+  scale_y_continuous(labels = comma)
